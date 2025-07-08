@@ -1,0 +1,79 @@
+%% @Introduce  : 
+%% @File       : Methodology.tex
+%% @Author     : ryrl
+%% @Email      : ryrl970311@gmail.com
+%% @Time       : 2025/01/15 13:58
+%% @Description: Methodology
+
+This research aims to develop a novel method for reconstructing GRNs by combining Graph Neural Networks (GNNs) with causal inference. Leveraging GNNs can uncover complex relationships in single-cell omics data and causal inference pinpoints true cause-and-effect links among genes. Figure \ref{fig:roadmap} illustrates the overall research framework. The following sections detail our approach to addressing the framework's key challenge.
+
+\begin{figure}[htbp]
+    \centering
+    % \includegraphics[width=\textwidth]{./figures/Roadmap.pdf}
+    \includegraphics[width=\textwidth]{./figures/Roadmap.pdf}
+    \caption{
+        Overview of research framework. The proposed methodology integrates Graph Neural Networks (GNNs) with causal inference techniques to reconstruct gene regulatory networks (GRNs) from single-cell omics data. By combining the strengths of GNNs and causal inference, the framework aims to capture the causal, directionally-aware relationships among genes, transcription factors, other regulatory elements and finally quantify the causal effects (such as do-calculus).
+    }
+    \label{fig:researchframework}
+\end{figure}
+
+\subsection{Initial Graph Construction}
+
+Graph-based representations of single-cell omics data offer a powerful framework for capturing and analyzing complex cellular and molecular interactions. However, constructing such graphs directly from raw data can introduce noise, redundant edges, or suboptimal connectivity \cite{wang2023gene,wang2025diffusion,dibaeinia2025interpretable}, thereby hindering downstream analyses, such as gene regulatory network inference and cell-cell communication modeling. Fortunately, many studies have provided valuable solutions to these challenges \cite{cheng2022scgac,wang2018network,li2023single,fan2024scgraphformer} (Figure \ref{fig:graphconstruction}). As a result, refining the graph structure becomes a critical step for extracting high-resolution biological insights. 
+
+In this study, we will construct the initial graph using a k-nearest neighbors (k-NN) approach based on gene expression similarity. To determine the optimal value of ``k'', we will employ a parameter sweep, evaluating the performance of downstream GNN tasks (e.g., graph reconstruction, node clustering) for different ``k'' values using metrics such as the Area Under the Receiver Operating Characteristic curve (AUROC) and Normalized Mutual Information (NMI). We will select the ``k'' that yields the best performance. To mitigate noise in the initial graph, we will explore techniques such as edge filtering based on the similarity score or using more robust graph construction methods like mutual information networks (MINs) as a baseline comparison. Additionally, we will investigate the integration of prior knowledge from existing gene regulatory databases (e.g., KEGG, STRING) to inform the initial graph structure by weighting or prioritizing edges supported by these databases. By systematically reducing noise and optimizing connectivity, these refinements not only improve the biological relevance of the resulting graphs but also enable more robust and interpretable downstream applications, including graph neural network modeling and causal inference.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{./figures/GraphConstruction.pdf}
+    \caption{
+        Methods for graph construction from single-cell data. This diagram illustrates three distinct approaches for converting a gene expression matrix into a graph representation. (1)Cell similarity is calculated using Pearson Correlation, optionally refined via Network Enhancement \cite{wang2018network}, and a graph is constructed using Top-K edge selection \cite{cheng2022scgac}. (2) The Neighbor Cross-Mapping Entropy (NME) method offers an alternative route for graph construction directly from the expression data \cite{li2023single}. (3) Another approach employs a k-Nearest Neighbors (KNN) algorithm based on Euclidean distance to identify connections and build the graph \cite{fan2024scgraphformer}.
+    }
+    \label{fig:graphconstruction}
+\end{figure}
+
+% \clearpage
+\subsection{Graph Neural Network Architecture}
+
+Graph Autoencoder (GAE) \cite{velivckovic2017graph,pan2018adversarially} will be employed to learn low-dimensional representations of genes from single-cell data. The encoder of the GAE will be selected from a set of powerful GNN architectures, including Graph Convolutional Network (GCN), GraphSAGE, Graph Isomorphism Network (GIN), and Graph Attention Network (GAT) \cite{hamilton2017inductive,kipf2016semi,velivckovic2017graph,xu2018powerful} (Figure \ref{fig:architectures}). Each of these architectures offers unique strengths in capturing different aspects of the gene regulatory network. For instance, GAT excels at assigning different weights to neighboring nodes, effectively capturing the varying strengths of regulatory relationships. The GAE model will utilize a multi-head attention mechanism, where each head focuses on distinct facets of gene interactions. The outputs from these attention heads will then be aggregated to produce a comprehensive embedding of the network. The choice of the encoder and the specific hyperparameters (number of layers, attention heads, etc.) will be optimized based on the characteristics of the single-cell data and the research question, potentially using techniques like cross-validation on downstream tasks. Non-linear activation functions (e.g., ReLU) will be incorporated to effectively model the complex, non-linear relationships present in the data.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{./figures/GraphAutoEncoder.pdf}
+    \caption{
+        Graph autoencoder for learning gene embeddings. (Top) Overview of a Graph Auto-Encoder (GAE), where an input graph is processed by an encoder to generate node embeddings, which are then used by a decoder to reconstruct the graph structure (adjacency matrix). (Bottom) Illustration of common message passing and aggregation strategies used in GNN layers within GAEs, including GCN, GraphSAGE, GIN, and GAT.
+    }
+    \label{fig:architectures}
+\end{figure}
+
+
+% \clearpage
+\subsection{Causal Inference Methods for Static and Dynamic GRNs}
+To identify true causal relationships, the GNN will be integrated with causal inference techniques. Specifically, an additive noise model \cite{feng2023gene} will test causal direction between gene pairs by comparing model fit in both directions using the low-dimensional gene embeddings learned by the GAE as input features. For static GRN inference, we will apply the additive noise model to all gene pairs in the inferred graph. For dynamic GRN modeling, if time-series single-cell data is available, we will explore using Granger causality based on the learned embeddings over time. This involves fitting autoregressive models for each gene's expression using the past expression of other genes to determine if one gene's past activity can predict another's future activity.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{./figures/CausalInferenceFramework.pdf}
+    \caption{
+        Causal structure learning framework. Illustration of a constraint-based approach to inferring a causal graph. Starting from a fully connected graph (top left), edges are removed based on conditional independence tests (e.g., $X \perp Y$) to identify the graph skeleton. Subsequently (bottom panel), edges are oriented based on conditional independence relations (e.g., identifying v-structures like $X \rightarrow Z \leftarrow Y$ if $X \perp Y | Z$) to obtain a Directed Acyclic Graph (DAG) representing causal relationships.
+    }
+    \label{fig:causalinferenceframework}
+\end{figure}
+
+Do-calculus \cite{pearl2009causal,zevcevic2021relating} will be incorporated to handle interventions and predict the effects of gene perturbations. Specifically, after inferring the causal structure (represented as a Directed Acyclic Graph - DAG), we will use the do-operator to simulate interventions on specific genes (e.g., setting their expression to a constant value). We will then propagate the effects of these interventions through the inferred causal network to predict changes in the expression of downstream target genes. This will involve applying the rules of do-calculus to estimate the interventional distributions $P(Y|do(X=x))$ for target genes $Y$ given an intervention on gene $X$. We will leverage the structural information of the inferred DAG to identify appropriate adjustment sets for estimating causal effects and handling potential confounding.
+
+\clearpage
+\subsection{Advantages of the Proposed Methodology}
+This combined approach offers several advantages over existing methods:
+\begin{itemize}
+    \item \textbf{Improved Accuracy}: Integrating causal inference with GNNs more accurately identifies regulatory relationships than methods relying solely on correlation.
+
+    \item \textbf{Enhanced Interpretability}: Causal inference clarifies underlying regulatory mechanisms. Additional interpretability comes from embedding visualization (e.g., t-SNE/UMAP) and attention-weight analysis, highlighting the most influential genes and interactions.
+
+    \item \textbf{Robustness to Confounding}: Causal inference methods help control confounding factors, yielding more reliable results.
+\end{itemize}
+
+Moreover, this combined approach aims to capture temporal dependencies and cause-and-effect dynamics within GRNs. By modeling interventions and gene perturbations, we gain deeper insights into how genes influence one another over time, a critical perspective for understanding complex regulatory processes in cellular function and disease.
+
+\subsection{Validation Strategy}
+To validate the reconstructed GRNs, we will employ several strategies. First, we will compare the inferred network with known regulatory interactions from established databases. We will evaluate the overlap and accuracy using metrics like precision, recall, and F1-score. Second, we plan to perform in silico perturbation experiments using the inferred causal relationships and do-calculus, where we simulate the effect of knocking out or overexpressing specific genes and compare the predicted downstream effects with existing biological knowledge or experimental data if available. Finally, we will conduct functional enrichment analysis on the identified regulatory modules within the inferred GRN to assess their biological coherence and relevance to known cellular processes. For dynamic GRN validation, if applicable, we will compare our inferred temporal relationships with known temporal regulatory patterns or time-series perturbation experiments from the literature.
